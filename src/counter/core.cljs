@@ -13,13 +13,19 @@
             (fn effect! [state [action {:keys [value]} {:keys [rao/d!]}]]
               (case action
                 :reset (js/alert "Reseting!")
-                :increment (when (< 5 value) (js/alert (str "Incrementing " value "!")))
-                :decrement (when (< 5 value) (js/alert (str "Decrementing " value "!")))
+                :increment (when (< 1 value) (js/alert (str "Incrementing " value "!")))
+                :decrement (when (< 1 value) (js/alert (str "Decrementing " value "!")))
                 nil)))
   [{:keys [rao/state rao/d!]} state]
   [:div
    [:div
-    [:h1 {} (str "Counter: " (:counter state))]]
+    [:h1 {:style {:margin "5px"}} (str (:counter state))]]
+   [:div
+    [:button {:type  "button"
+              :class "custom-button"
+              :on-click (fn [_]
+                          (d! :reset {}))}
+             "Reset"]]
    [:div
     [:button {:type  "button"
               :class "custom-button"
@@ -30,12 +36,8 @@
               :class "custom-button"
               :on-click (fn [_]
                           (d! :decrement {:value 1}))}
-             "-1"]
-    [:button {:type  "button"
-              :class "custom-button"
-              :on-click (fn [_]
-                          (d! :reset {}))}
-             "Reset"]
+             "-1"]]
+   [:div
     [:button {:type  "button"
               :class "custom-button"
               :on-click (fn [_]
