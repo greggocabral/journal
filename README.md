@@ -1,3 +1,3 @@
 # rao/wire Counter
 
-A basic implementation of a counter in ClojureScript using rao/wire for state management
+A basic implementation of a journal in ClojureScript using rao/wire for state management
