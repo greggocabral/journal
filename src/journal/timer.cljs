@@ -28,16 +28,17 @@
                 :else
                 nil)))
   [{:keys [rao/state rao/d!]} state]
-  [:div
-   [:h1 (:count state)]
-   [:div
-    [:button {:type  "button"
-              :class "custom-button"
-              :on-click (fn [_]
-                          (d! :start {}))}
-             "Start"]
-    [:button {:type  "button"
-              :class "custom-button"
-              :on-click (fn [_]
-                          (d! :reset {}))}
-             "Reset"]]])
+  [:div.columns.is-mobile.level
+   [:div.column.is-half.level-item.has-text-right
+    [:h2.subtitle (:count state)]]
+   [:div.column.is-half.level-item.has-text-left
+    [:div
+     [:button {:type  "button"
+               :on-click (fn [_]
+                           (d! :start {}))}
+              "Start"]]
+    [:div
+     [:button {:type  "button"
+               :on-click (fn [_]
+                           (d! :reset {}))}
+              "Reset"]]]])

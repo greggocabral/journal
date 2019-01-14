@@ -131,7 +131,7 @@
     (for [{:keys [id text]} question-answers]
       [:div {:key id}
        [:label (str (inc (- id starting-id)))]
-       [:textarea {:rows "1" :cols "60" :name id :placeholder text}]])))
+       [:textarea.input {:rows "1" :cols "60" :name id :placeholder text}]])))
 
 (defc render-questions [state section-id]
   (let [section-questions (filter #(= section-id (:section-id %)) (:questions state))]
@@ -143,7 +143,7 @@
 
 (defc render-sections [state]
   (for [{:keys [id text]} (:sections state)]
-    [:div {:key id}
+    [:div.section {:key id}
      [:hr]
      [:h1 {} text]
      [:div
@@ -166,20 +166,27 @@
                  (d! :load {:value (get-today-string)})
                  rum-state)}
   [{:keys [rao/state rao/d!]} state]
-  [:div
-   (timer/render-timer)
-   [:hr]
-   [:div
-    [:h2 (get-today-string)]]
-   [:form {:id "main-form" :name "main-form"}
-    (render-sections state)]
-   [:hr]
-   [:div
-    [:button {:type  "button"
-              :class "custom-button"
-              :on-click (fn [_]
-                          (d! :save {}))}
-             "Save"]]])
+  [:div.container.is-fluid
+   [:nav.columns.level.is-mobile
+    [:p.column.is-half.level-item.has-text-centered
+      [:h1.title "Journal"]]
+    [:p.column.is-half.level-item.has-text-centered
+      (timer/render-timer)]]
+   [:div.columns
+    [:div.column.has-text-centered
+     [:h2.subtitle (get-today-string)]]]
+   [:div.columns
+    [:div.column
+     [:form {:id "main-form" :name "main-form"}
+      (render-sections state)]]]
+   [:div.columns
+    [:div.column
+     [:div.section
+      [:button {:type  "button"
+                :class "custom-button"
+                :on-click (fn [_]
+                            (d! :save {}))}
+               "Save"]]]]])
 
 (rum/mount (app)
            (. js/document (getElementById "app")))
