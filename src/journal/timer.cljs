@@ -1,9 +1,15 @@
 (ns journal.timer
   (:require [rum.core :as rum :refer [defcs]]
-            [rao.rum :as rao]))
+            [rao.rum :as rao]
+            [goog.string :as gstring]))
 
 (def default-time
   300)
+
+(defn seconds->time [seconds]
+  (let [mins (.floor js/Math (/ seconds 60))
+        secs (- seconds (* mins 60))]
+    (gstring/format "%02d:%02d" mins secs)))
 
 (defcs render-timer <
   (rao/wire {:count default-time :timer-state :stopped}
@@ -28,17 +34,18 @@
                 :else
                 nil)))
   [{:keys [rao/state rao/d!]} state]
-  [:div.columns.is-mobile.level
-   [:div.column.is-half.level-item.has-text-right
-    [:h2.subtitle (:count state)]]
-   [:div.column.is-half.level-item.has-text-left
-    [:div
-     [:button {:type  "button"
-               :on-click (fn [_]
-                           (d! :start {}))}
-              "Start"]]
-    [:div
-     [:button {:type  "button"
-               :on-click (fn [_]
-                           (d! :reset {}))}
-              "Reset"]]]])
+  [:div.card
+    [:div.card-content
+     [:p.title
+      [:h1.title (seconds->time (:count state))]]]
+    [:footer.card-footer
+     [:p.card-footer-item
+      [:button.button.is-white {:type  "button"
+                                 :on-click (fn [_]
+                                             (d! :start {}))}
+       "Start journaling"]]
+     [:p.card-footer-item
+      [:button.button.is-white {:type  "button"
+                                 :on-click (fn [_]
+                                             (d! :reset {}))}
+       "Reset"]]]])

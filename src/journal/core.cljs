@@ -1,11 +1,9 @@
 (ns journal.core
   (:require [rum.core :as rum :refer [defc defcs]]
             [rao.rum :as rao]
-            [goog.string :as gstr]
-            [goog.string.format]
             [goog.dom :as dom]
+            [goog.string.format :as format]
             [cljs.reader :as reader]
-            [journal.timer :as timer]
             [cognitect.transit :as transit]))
 
 ;; ===========================================================================
@@ -60,9 +58,13 @@
 ;; ===========================================================================
 ;; Config
 
+(def default-time 300)
+
 (def empty-state
-  {:sections [{:id 1 :text "Morning"}
-              {:id 2 :text "Night"}]
+  {:active-modal :none
+   :timer {:count default-time :state :stopped}
+   :sections [{:id 1 :text "Early morning"}
+              {:id 2 :text "Late night"}]
    :questions [{:id 1 :section-id 1 :text "What is making me happy today?"}
                {:id 2 :section-id 1 :text "Things that I could solve today and would make me feel great"}
                {:id 3 :section-id 1 :text "Daily affirmations. I am..."}
@@ -92,7 +94,7 @@
         year (.getFullYear date)
         month (inc (.getMonth date))
         day (.getDate date)]
-    (gstr/format "%s-%s-%s" year month day)))
+    (goog.string.format "%s-%s-%s" year month day)))
 
 (defn form-data->answers [state form-data]
   (map (fn [answer]
@@ -108,44 +110,42 @@
                            :questions (:questions state)
                            :answers answers})))
 
-;;get all date strings
-
-;;get data from datestring
-(defn get-form-data [date-string]
-  (get-item date-string))
-
 (defn load-form-data [state date-string]
   (if-let [stored-data (get-item date-string)]
-    stored-data
+    (merge state stored-data)
     state))
 
-;;get previous date set-running
+;; ===========================================================================
+;; Timer
 
-;;get next date string
+(defn seconds->time [seconds]
+  (let [mins (.floor js/Math (/ seconds 60))
+        secs (- seconds (* mins 60))]
+    (goog.string.format "%02d:%02d" mins secs)))
 
 ;; ===========================================================================
 ;; UI Components
+
 (defc render-answers [state question-id]
   (let [question-answers (filter #(= question-id (:question-id %)) (:answers state))
         starting-id (apply min (map :id question-answers))]
     (for [{:keys [id text]} question-answers]
-      [:div {:key id}
-       [:label (str (inc (- id starting-id)))]
-       [:textarea.input {:rows "1" :cols "60" :name id :placeholder text}]])))
+      [:div.control.has-icons-left.margin {:key id}
+       [:input.input {:name id :placeholder text}]
+       [:span.icon.is-small.is-left (str (inc (- id starting-id)))]])))
 
 (defc render-questions [state section-id]
   (let [section-questions (filter #(= section-id (:section-id %)) (:questions state))]
     (for [{:keys [id text]} section-questions]
-      [:div {:key id}
-       [:h2 {} text]
+      [:div.section.is-small {:key id}
+       [:h2.subtitle {} text]
        [:div
         (render-answers state id)]])))
 
 (defc render-sections [state]
   (for [{:keys [id text]} (:sections state)]
-    [:div.section {:key id}
-     [:hr]
-     [:h1 {} text]
+    [:div.section.is-medium {:key id}
+     [:h1.title.has-text-centered {} text]
      [:div
       (render-questions state id)]]))
 
@@ -157,36 +157,109 @@
             (fn step [state [action {:keys [value]}]]
               (case action
                 :load (load-form-data state value)
+                :modal/start (assoc state :active-modal :start)
+                :modal/close (assoc state :active-modal :none)
+                :timer/set-running (assoc-in state [:timer :state] :running)
+                :timer/set-stopped (-> state
+                                      (assoc-in [:timer :state] :stopped)
+                                      (assoc-in [:timer :count] default-time))
+                :timer/tick (update-in state [:timer :count] dec)
                 state))
             (fn effect! [state [action {:keys [value]} {:keys [rao/d!]}]]
-              (case action
-                :save (store-form-data! state)
+              (cond
+                (= action :save)
+                (store-form-data! state)
+
+                (and (= action :timer/start) (not (= (:state (:timer state)) :running)))
+                (do
+                  (def interval (.setInterval js/window (fn [_] (d! :timer/tick {})) 1000))
+                  (d! :timer/set-running {}))
+
+                (and (= action :timer/reset) (not (= (:state (:timer state)) :stopped)))
+                (do
+                  (.clearInterval js/window interval)
+                  (d! :timer/set-stopped {}))
+
+                :else
                 nil)))
   {:will-mount (fn [{:keys [rao/d!] :as rum-state}]
                  (d! :load {:value (get-today-string)})
                  rum-state)}
   [{:keys [rao/state rao/d!]} state]
   [:div.container.is-fluid
-   [:nav.columns.level.is-mobile
-    [:p.column.is-half.level-item.has-text-centered
-      [:h1.title "Journal"]]
-    [:p.column.is-half.level-item.has-text-centered
-      (timer/render-timer)]]
-   [:div.columns
+;; Header
+   [:div.section
+    [:div.columns.level.is-mobile
+     [:div.column.is-half.level-item.has-text-centered
+       [:h1.title "Journal"]]
+     [:div.column.is-half.level-item.has-text-centered
+       [:h2.subtitle (get-today-string)]]]]
+;; Timer
+   [:div
     [:div.column.has-text-centered
-     [:h2.subtitle (get-today-string)]]]
+     [:div.card
+       [:div.card-content
+        [:div.title
+         [:h1.title (seconds->time (:count (:timer state)))]]]
+       [:footer.card-footer
+        [:div.card-footer-item
+         [:button.button.is-white {:type  "button"
+                                   :on-click (fn [_]
+                                               (d! :modal/start {}))}
+          "Start journaling"]]
+        [:p.card-footer-item
+         [:button.button.is-white {:type  "button"
+                                    :on-click (fn [_]
+                                                (d! :timer/reset {}))}
+          "Reset"]]]]]]
+;; Morning section
    [:div.columns
     [:div.column
      [:form {:id "main-form" :name "main-form"}
-      (render-sections state)]]]
-   [:div.columns
+      [:div {:key 1}
+       [:h1.title.has-text-centered {} (:text (first (:sections state)))]
+       [:div
+        (render-questions state 1)]]]]
     [:div.column
-     [:div.section
-      [:button {:type  "button"
-                :class "custom-button"
-                :on-click (fn [_]
-                            (d! :save {}))}
-               "Save"]]]]])
+     [:div
+      [:button.button.is-large.is-fullwidth.is-white
+       {:type  "button"
+        :on-click (fn [_]
+                    (d! :save {}))}
+       "Save entry"]]]
+;; Night section
+    [:div.column
+     [:form {:id "main-form" :name "main-form"}
+      [:div.section.is-medium {:key 2}
+       [:h1.title.has-text-centered {} (:text (second (:sections state)))]
+       [:div
+        (render-questions state 2)]]]]
+    [:div.column
+     [:div
+      [:button.button.is-large.is-fullwidth.is-white
+       {:type  "button"
+        :on-click (fn [_]
+                    (d! :save {}))}
+       "Save entry"]]]]
+;; Modal
+   (case (:active-modal state)
+     :start  [:div.modal.is-active
+               [:div.modal-background]
+               [:div.modal-card
+                [:header.modal-card-head
+                 [:p.modal-card-title "Start Journaling Session"]
+                 [:button.delete {:on-click (fn [_]
+                                              (d! :modal/close {}))}]]
+                [:section.modal-card-body "1. Turn on flight mode.\n 2. Start journaling out your day"]
+                [:footer.modal-card-foot
+                 [:button.button {:on-click (fn [_]
+                                              (do
+                                                (d! :modal/close {})
+                                                (d! :timer/start {})))}
+                  "Start"]
+                 [:button.button "Cancel"]]]]
+     nil)])
+
 
 (rum/mount (app)
            (. js/document (getElementById "app")))
