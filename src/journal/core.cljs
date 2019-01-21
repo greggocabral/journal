@@ -250,7 +250,7 @@
                  [:p.modal-card-title "Start Journaling Session"]
                  [:button.delete {:on-click (fn [_]
                                               (d! :modal/close {}))}]]
-                [:section.modal-card-body "1. Turn on flight mode.\n 2. Start journaling out your day"]
+                [:section.modal-card-body "Turn on flight mode. Then start journaling out your day."]
                 [:footer.modal-card-foot
                  [:button.button {:on-click (fn [_]
                                               (do
